@@ -1,0 +1,35 @@
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+name: docs
+
+jobs:
+  docs:
+    runs-on: self-hosted
+    permissions:
+      contents: write # Ensure GITHUB_TOKEN has write permissions
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Ensure temporary directory exists
+        run: mkdir -p $HOME/actions-runner/_work/_temp
+
+      - name: panvimdoc
+        uses: kdheepak/panvimdoc@main
+        with:
+          vimdoc: topsail-nvim-docs
+          version: "Neovim >= 0.8.0"
+          demojify: true
+          treesitter: true
+
+      - name: Push changes
+        uses: stefanzweifel/git-auto-commit-action@v4
+        with:
+          commit_message: "auto-generate vimdoc"
+          commit_user_name: "github-actions[bot]"
+          commit_user_email: "github-actions[bot]@users.noreply.github.com"
+          commit_author: "github-actions[bot] <github-actions[bot]@users.noreply.github.com>"
+          github_token: ${{ secrets.GITHUB_TOKEN }}
