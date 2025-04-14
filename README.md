@@ -1,36 +1,74 @@
 # topsail.nvim
 
-What is Topsail?
-
 Topsail is a Neovim plugin for managing Kubernetes resources directly from your editor.
 
-Originally, `topsail.nvim` was is a thin wrapper around `:!kubectl apply -f %` on files which are detected as Kubernetes resources.
+- Originally, `topsail.nvim` was is a thin wrapper around `:!kubectl apply -f %` on files which are detected as Kubernetes resources.
+- Secondly, it is now poor man's `aerial.nvim` but for kubernetes resources in the cwd.
 
-Secondly, it is now poor man's `aerial.nvim` but for kubernetes resources in the cwd.
+## Features
+
+- Automatic detection of Kubernetes YAML files
+- Apply and Create resources directly from Neovim
+- Async operations that don't block the editor
+- Configurable keymaps and notifications
+- Telescope integration for searching and managing Kubernetes resources
 
 ## Installation
 
-### Lazy.nvim
+Using [lazy.nvim](https://github.com/folke/lazy.nvim):
 
 ```lua
-
 {
     "enchantednatures/topsail.nvim",
     lazy = true,
     event = {"VeryLazy"},
-    -- opts = {},
     cmd = {"KubernetesApply", "KubernetesCreate"},
     keys = {
         { "<leader>ka", "<cmd>KubernetesApply<cr>", desc = "Apply the current Kubernetes resource" },
         { "<leader>kc", "<cmd>KubernetesCreate<cr>", desc = "Create a new Kubernetes resource" },
         { "<leader>tcr", function()
-              require("telescope").load_extension "topsail"
-              require("telescope").extensions.topsail.workspace()
+            -- only load the extension if it's not already loaded
+            require("telescope").load_extension "topsail"
+            require("telescope").extensions.topsail.workspace()
         end, desc = "[T]elescope [C]luster [R]esources" },
+        { "<leader>tsf", function()
+            require("telescope").load_extension "topsail"
+            require("telescope").extensions.topsail.single_file()
+        end, desc = "[T]elescope [S]ingle [F]ile" },
     },
 }
-
 ```
+
+## Setup
+
+You can setup the plugin with custom configuration:
+
+```lua
+require('topsail').setup({
+    notify = true, -- Enable notifications
+    keymaps = {
+        apply = '<leader>ka',
+        create = '<leader>kc'
+    }
+})
+```
+
+## Commands
+
+- `:KubernetesApply` - Apply the current YAML file as a Kubernetes resource.
+- `:KubernetesCreate` - Create a new Kubernetes resource from the current YAML file.
+
+## Mappings
+
+No default mappings are provided.
+
+## Configuration
+
+
+## Requirements
+
+- Neovim >=0.11.0
+- kubectl installed and in your PATH
 
 ## Known Issues
 
@@ -43,3 +81,7 @@ metadata:
   "name": "arangodb-cluster"
   namespace: "arangodb"
 ```
+
+## License
+
+MIT
