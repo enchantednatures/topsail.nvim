@@ -55,6 +55,8 @@ require('topsail').setup({
 
 ## Commands
 
+The following commands are available only if the current file passes `kubectl apply --dry-run=client -f % `:
+
 - `:KubernetesApply` - Apply the current YAML file as a Kubernetes resource.
 - `:KubernetesCreate` - Create a new Kubernetes resource from the current YAML file.
 
@@ -72,6 +74,8 @@ No default mappings are provided.
 
 ## Known Issues
 
+### Quoted Keys and values
+
 The tree-sitter query is not working when keys or values are quoted.
 
 ```yaml
@@ -81,6 +85,10 @@ metadata:
   "name": "arangodb-cluster"
   namespace: "arangodb"
 ```
+
+### Alignment
+
+Yeah, yeah the table doesn't look quite right if your resources have long names.
 
 ## License
 
