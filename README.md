@@ -69,6 +69,7 @@ No default mappings are provided.
 
 - Neovim >=0.11.0
 - kubectl installed and in your PATH
+<img width="1704" alt="Screenshot 2025-06-28 at 11 39 39 AM" src="https://github.com/user-attachments/assets/6ad61820-6a1d-4711-b3a0-64206dea0447" />
 
 ## Known Issues
 
