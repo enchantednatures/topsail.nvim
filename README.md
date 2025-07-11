@@ -9,6 +9,7 @@ Topsail is a Neovim plugin for managing Kubernetes resources directly from your 
 
 - Automatic detection of Kubernetes YAML files
 - Apply and Create resources directly from Neovim
+- **Copy Kubernetes resources to clipboard/register**
 - Async operations that don't block the editor
 - Configurable keymaps and notifications
 - Telescope integration for searching and managing Kubernetes resources
@@ -26,6 +27,7 @@ Using [lazy.nvim](https://github.com/folke/lazy.nvim):
     keys = {
         { "<leader>ka", "<cmd>KubernetesApply<cr>", desc = "Apply the current Kubernetes resource" },
         { "<leader>kc", "<cmd>KubernetesCreate<cr>", desc = "Create a new Kubernetes resource" },
+        { "<leader>ky", function() require('topsail').copy_resource() end, desc = "Copy current YAML resource to register" },
         { "<leader>tcr", function()
             -- only load the extension if it's not already loaded
             require("telescope").load_extension "topsail"
@@ -48,7 +50,8 @@ require('topsail').setup({
     notify = true, -- Enable notifications
     keymaps = {
         apply = '<leader>ka',
-        create = '<leader>kc'
+        create = '<leader>kc',
+        copy = '<leader>ky'
     }
 })
 ```
@@ -60,9 +63,65 @@ The following commands are available only if the current file passes `kubectl ap
 - `:KubernetesApply` - Apply the current YAML file as a Kubernetes resource.
 - `:KubernetesCreate` - Create a new Kubernetes resource from the current YAML file.
 
+## Copy Functionality
+
+Topsail provides multiple ways to copy Kubernetes resources:
+
+### Buffer Keymaps (when editing a Kubernetes YAML file)
+- `<leader>ky` - Copy the entire YAML file content to the default register
+
+### Telescope Picker Keymaps
+When using `:Telescope topsail workspace` or `:Telescope topsail single_file`:
+
+- `<C-y>` - Copy the entire YAML file to the default register
+- `<C-r>` - Copy only the selected Kubernetes resource to the default register
+
+The `<C-r>` mapping is particularly useful for files containing multiple Kubernetes resources separated by `---`. It intelligently extracts just the specific resource you have selected, using treesitter for precise boundaries when available, with a smart fallback to line-based parsing.
+
+### Usage Examples
+
+**Copying from a single resource file:**
+1. Open a Kubernetes YAML file (e.g., `deployment.yaml`)
+2. Press `<leader>ky` to copy the entire file to your default register
+3. Paste anywhere with `p` or `"0p`
+
+**Copying from telescope picker:**
+1. Run `:Telescope topsail workspace` to see all Kubernetes resources in your project
+2. Navigate to the resource you want
+3. Press `<C-y>` to copy the entire file, or `<C-r>` to copy just that resource
+4. Press `<Esc>` to close telescope and paste with `p`
+
+**Copying specific resources from multi-resource files:**
+```yaml
+# multi-resource.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-config
+data:
+  key: value
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-deployment
+spec:
+  replicas: 3
+```
+
+1. Run `:Telescope topsail single_file` and select `multi-resource.yaml`
+2. Choose either "app-config" or "app-deployment" from the picker
+3. Press `<C-r>` to copy only that specific resource (not the entire file)
+
 ## Mappings
 
-No default mappings are provided.
+The following buffer-local mappings are automatically set up when editing Kubernetes YAML files:
+
+- `<leader>ka` - Apply the current Kubernetes resource
+- `<leader>kc` - Create the current Kubernetes resource  
+- `<leader>ky` - Copy the current YAML file to the default register
+
+These mappings can be customized via the `keymaps` configuration option.
 
 ## Configuration
 
