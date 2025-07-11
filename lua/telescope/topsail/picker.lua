@@ -7,6 +7,112 @@ local scandir = require("plenary.scandir")
 
 local M = {}
 
+-- Extract a specific Kubernetes resource from a YAML file using treesitter
+local function extract_resource_content(file_path, target_line)
+  local file = io.open(file_path, "r")
+  if not file then
+    return nil
+  end
+  
+  local content = file:read("*a")
+  file:close()
+  
+  -- Try treesitter approach first
+  local lang = vim.treesitter.language.get_lang("yaml")
+  if lang then
+    local ok_parser, parser = pcall(vim.treesitter.get_string_parser, content, lang)
+    if ok_parser then
+      local ok_parse, trees = pcall(parser.parse, parser)
+      if ok_parse and trees and #trees > 0 then
+        local tree = trees[1]
+        local root = tree:root()
+        local ts_query = vim.treesitter.query.get(lang, "kubernetes_resources")
+
+        if ts_query then
+          -- Find the resource that contains our target line
+          local target_resource_node = nil
+          for id, node in ts_query:iter_captures(root, content, 0, -1) do
+            local capture = ts_query.captures[id]
+            if capture == "resource_root" then
+              local start_row, _, end_row, _ = node:range()
+              -- Convert to 1-based line numbers for comparison
+              if target_line >= start_row + 1 and target_line <= end_row + 1 then
+                target_resource_node = node
+                break
+              end
+            end
+          end
+
+          if target_resource_node then
+            -- Extract the exact resource using treesitter node boundaries
+            local start_row, start_col, end_row, end_col = target_resource_node:range()
+            local lines = vim.split(content, "\n")
+            local resource_lines = {}
+            
+            for i = start_row + 1, end_row + 1 do
+              if i <= #lines then
+                local line = lines[i]
+                if i == start_row + 1 and start_col > 0 then
+                  line = line:sub(start_col + 1)
+                end
+                if i == end_row + 1 and end_col > 0 then
+                  line = line:sub(1, end_col)
+                end
+                table.insert(resource_lines, line)
+              end
+            end
+            
+            return table.concat(resource_lines, "\n")
+          end
+        end
+      end
+    end
+  end
+
+  -- Fallback to simple line-based extraction
+  local lines = vim.split(content, "\n")
+  local resource_lines = {}
+  local start_line = target_line
+  local base_indent = nil
+  
+  -- Find the start of the resource (look for apiVersion or kind at same or less indentation)
+  for i = target_line, 1, -1 do
+    local line = lines[i]
+    if line:match("^%s*apiVersion:") or line:match("^%s*kind:") then
+      start_line = i
+      base_indent = line:match("^(%s*)")
+      break
+    end
+  end
+  
+  -- Extract from start_line until we hit another resource or end
+  for i = start_line, #lines do
+    local line = lines[i]
+    local current_indent = line:match("^(%s*)")
+    
+    if i == start_line then
+      table.insert(resource_lines, line)
+    elseif line:match("^%s*$") then
+      table.insert(resource_lines, line)
+    elseif line:match("^%s*#") then
+      table.insert(resource_lines, line)
+    elseif line:match("^%s*%-%-%-") then
+      break
+    elseif base_indent and #current_indent <= #base_indent and (line:match("^%s*apiVersion:") or line:match("^%s*kind:")) then
+      break
+    else
+      table.insert(resource_lines, line)
+    end
+  end
+  
+  -- Remove trailing empty lines
+  while #resource_lines > 0 and resource_lines[#resource_lines]:match("^%s*$") do
+    table.remove(resource_lines)
+  end
+  
+  return table.concat(resource_lines, "\n")
+end
+
 local columns = {
   { name = "Name", width = 24 },
   { name = "Namespace", width = 24 },
@@ -73,7 +179,7 @@ local function parse(file_path)
   local ok, file = pcall(io.open, file_path, "r")
   if not ok or not file then
     vim.notify("Failed to open file: " .. file_path, vim.log.levels.ERROR)
-    return {}
+    return nil
   end
   local content = file:read("*a")
   file:close()
@@ -81,11 +187,22 @@ local function parse(file_path)
   local lang = vim.treesitter.language.get_lang("yaml")
   if not lang then
     vim.notify("Treesitter YAML language not found.", vim.log.levels.ERROR)
-    return {}
+    return nil
   end
 
-  local parser = vim.treesitter.get_string_parser(content, lang)
-  local tree = parser:parse()[1]
+  local ok_parser, parser = pcall(vim.treesitter.get_string_parser, content, lang)
+  if not ok_parser then
+    vim.notify("Failed to create YAML parser.", vim.log.levels.ERROR)
+    return nil
+  end
+  
+  local ok_parse, trees = pcall(parser.parse, parser)
+  if not ok_parse or not trees or #trees == 0 then
+    vim.notify("Failed to parse YAML content.", vim.log.levels.ERROR)
+    return nil
+  end
+  
+  local tree = trees[1]
   local root = tree:root()
   local ts_query = vim.treesitter.query.get(lang, "kubernetes_resources")
 
@@ -256,7 +373,7 @@ function M.workspace()
         entry_maker = convert_to_telescope,
       }),
       sorter = conf.generic_sorter({}),
-      attach_mappings = function(prompt_bufnr, _)
+      attach_mappings = function(prompt_bufnr, map)
         -- Add a header row
         local header = string.format("%-20s %-25s %-25s %-25s %-s", "Name", "Kind", "Api Version", "File", "Path")
         vim.api.nvim_buf_set_lines(prompt_bufnr, 0, 0, false, { header, string.rep("-", #header) })
@@ -267,6 +384,55 @@ function M.workspace()
           vim.cmd("edit " .. selection.path)
           vim.api.nvim_win_set_cursor(0, { selection.lnum, 0 })
         end)
+        
+        map("i", "<C-y>", function()
+          local selection = action_state.get_selected_entry()
+          local file = io.open(selection.path, "r")
+          if file then
+            local content = file:read("*a")
+            file:close()
+            vim.fn.setreg('"', content)
+            vim.notify("Entire YAML file copied to default register", vim.log.levels.INFO)
+          else
+            vim.notify("Failed to open file: " .. selection.path, vim.log.levels.ERROR)
+          end
+        end)
+        
+        map("n", "<C-y>", function()
+          local selection = action_state.get_selected_entry()
+          local file = io.open(selection.path, "r")
+          if file then
+            local content = file:read("*a")
+            file:close()
+            vim.fn.setreg('"', content)
+            vim.notify("Entire YAML file copied to default register", vim.log.levels.INFO)
+          else
+            vim.notify("Failed to open file: " .. selection.path, vim.log.levels.ERROR)
+          end
+        end)
+        
+        map("i", "<C-r>", function()
+          local selection = action_state.get_selected_entry()
+          local resource_content = extract_resource_content(selection.path, selection.lnum)
+          if resource_content then
+            vim.fn.setreg('"', resource_content)
+            vim.notify("Kubernetes resource copied to default register", vim.log.levels.INFO)
+          else
+            vim.notify("Failed to extract resource from file: " .. selection.path, vim.log.levels.ERROR)
+          end
+        end)
+        
+        map("n", "<C-r>", function()
+          local selection = action_state.get_selected_entry()
+          local resource_content = extract_resource_content(selection.path, selection.lnum)
+          if resource_content then
+            vim.fn.setreg('"', resource_content)
+            vim.notify("Kubernetes resource copied to default register", vim.log.levels.INFO)
+          else
+            vim.notify("Failed to extract resource from file: " .. selection.path, vim.log.levels.ERROR)
+          end
+        end)
+        
         return true
       end,
     })
@@ -295,13 +461,62 @@ function M.single_file()
                 entry_maker = convert_to_telescope,
               }),
               sorter = conf.generic_sorter({}),
-              attach_mappings = function(prompt_bufnr, _)
+              attach_mappings = function(prompt_bufnr, map)
                 actions.select_default:replace(function()
                   actions.close(prompt_bufnr)
                   local selection = action_state.get_selected_entry()
                   vim.cmd("edit " .. selection.path)
                   vim.api.nvim_win_set_cursor(0, { selection.lnum, 0 })
                 end)
+                
+                map("i", "<C-y>", function()
+                  local selection = action_state.get_selected_entry()
+                  local file = io.open(selection.path, "r")
+                  if file then
+                    local content = file:read("*a")
+                    file:close()
+                    vim.fn.setreg('"', content)
+                    vim.notify("Entire YAML file copied to default register", vim.log.levels.INFO)
+                  else
+                    vim.notify("Failed to open file: " .. selection.path, vim.log.levels.ERROR)
+                  end
+                end)
+                
+                map("n", "<C-y>", function()
+                  local selection = action_state.get_selected_entry()
+                  local file = io.open(selection.path, "r")
+                  if file then
+                    local content = file:read("*a")
+                    file:close()
+                    vim.fn.setreg('"', content)
+                    vim.notify("Entire YAML file copied to default register", vim.log.levels.INFO)
+                  else
+                    vim.notify("Failed to open file: " .. selection.path, vim.log.levels.ERROR)
+                  end
+                end)
+                
+                map("i", "<C-r>", function()
+                  local selection = action_state.get_selected_entry()
+                  local resource_content = extract_resource_content(selection.path, selection.lnum)
+                  if resource_content then
+                    vim.fn.setreg('"', resource_content)
+                    vim.notify("Kubernetes resource copied to default register", vim.log.levels.INFO)
+                  else
+                    vim.notify("Failed to extract resource from file: " .. selection.path, vim.log.levels.ERROR)
+                  end
+                end)
+                
+                map("n", "<C-r>", function()
+                  local selection = action_state.get_selected_entry()
+                  local resource_content = extract_resource_content(selection.path, selection.lnum)
+                  if resource_content then
+                    vim.fn.setreg('"', resource_content)
+                    vim.notify("Kubernetes resource copied to default register", vim.log.levels.INFO)
+                  else
+                    vim.notify("Failed to extract resource from file: " .. selection.path, vim.log.levels.ERROR)
+                  end
+                end)
+                
                 return true
               end,
             })

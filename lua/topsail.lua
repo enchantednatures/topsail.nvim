@@ -6,6 +6,7 @@ M.config = {
   keymaps = {
     apply = "<leader>ka",
     create = "<leader>kc",
+    copy = "<leader>ky",
   },
 }
 
@@ -87,6 +88,25 @@ function M.apply_resource()
   })
 end
 
+function M.copy_resource()
+  local current_file = vim.fn.expand("%")
+  local file = io.open(current_file, "r")
+  if not file then
+    if M.config.notify then
+      vim.notify("Failed to open file: " .. current_file, vim.log.levels.ERROR)
+    end
+    return
+  end
+  
+  local content = file:read("*a")
+  file:close()
+  
+  vim.fn.setreg('"', content)
+  if M.config.notify then
+    vim.notify("YAML resource copied to default register", vim.log.levels.INFO)
+  end
+end
+
 function M.setup_buffer_keymaps()
   vim.keymap.set("n", M.config.keymaps.apply, M.apply_resource, { buffer = true, desc = "Apply Kubernetes resource" })
   vim.keymap.set(
@@ -95,6 +115,7 @@ function M.setup_buffer_keymaps()
     M.create_resource,
     { buffer = true, desc = "Create Kubernetes resource" }
   )
+  vim.keymap.set("n", M.config.keymaps.copy, M.copy_resource, { buffer = true, desc = "Copy YAML resource to register" })
 end
 
 function M.setup(opts)
