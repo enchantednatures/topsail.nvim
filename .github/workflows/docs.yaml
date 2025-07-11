@@ -25,11 +25,19 @@ jobs:
           demojify: true
           treesitter: true
 
-      - name: Push changes
-        uses: stefanzweifel/git-auto-commit-action@v4
+      # - name: Push changes
+      #   uses: stefanzweifel/git-auto-commit-action@v4
+      #   with:
+      #     commit_message: "auto-generate vimdoc"
+      #     commit_user_name: "github-actions[bot]"
+      #     commit_user_email: "github-actions[bot]@users.noreply.github.com"
+      #     commit_author: "github-actions[bot] <github-actions[bot]@users.noreply.github.com>"
+      #     github_token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v5
         with:
-          commit_message: "auto-generate vimdoc"
-          commit_user_name: "github-actions[bot]"
-          commit_user_email: "github-actions[bot]@users.noreply.github.com"
-          commit_author: "github-actions[bot] <github-actions[bot]@users.noreply.github.com>"
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "Update docs"
+          branch: docs/update-docs-${{ github.run_id }}
+          title: "Automated docs update"
+          base: main
