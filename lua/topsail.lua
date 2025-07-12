@@ -97,10 +97,10 @@ function M.copy_resource()
     end
     return
   end
-  
+
   local content = file:read("*a")
   file:close()
-  
+
   vim.fn.setreg('"', content)
   if M.config.notify then
     vim.notify("YAML resource copied to default register", vim.log.levels.INFO)
@@ -115,7 +115,12 @@ function M.setup_buffer_keymaps()
     M.create_resource,
     { buffer = true, desc = "Create Kubernetes resource" }
   )
-  vim.keymap.set("n", M.config.keymaps.copy, M.copy_resource, { buffer = true, desc = "Copy YAML resource to register" })
+  vim.keymap.set(
+    "n",
+    M.config.keymaps.copy,
+    M.copy_resource,
+    { buffer = true, desc = "Copy YAML resource to register" }
+  )
 end
 
 function M.setup(opts)

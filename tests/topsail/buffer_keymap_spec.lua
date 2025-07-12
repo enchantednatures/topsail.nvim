@@ -17,7 +17,7 @@ data:
   before_each(function()
     -- Save original config
     original_config = vim.deepcopy(topsail.config)
-    
+
     -- Create temporary test file
     temp_file = vim.fn.tempname() .. ".yaml"
     local file = io.open(temp_file, "w")
@@ -28,12 +28,12 @@ data:
   after_each(function()
     -- Restore original config
     topsail.config = original_config
-    
+
     -- Clean up temporary file
     if temp_file then
       os.remove(temp_file)
     end
-    
+
     -- Clear any test registers
     vim.fn.setreg('"', "")
   end)
@@ -42,13 +42,13 @@ data:
     it("should copy file content to default register", function()
       -- Clear register first
       vim.fn.setreg('"', "")
-      
+
       -- Open the test file
       vim.cmd("edit " .. temp_file)
-      
+
       -- Call copy_resource function
       topsail.copy_resource()
-      
+
       -- Check that content was copied to register
       local register_content = vim.fn.getreg('"')
       assert.is_not_nil(register_content)
@@ -61,7 +61,7 @@ data:
     it("should handle file read errors gracefully", function()
       -- Try to copy from a non-existent file
       vim.cmd("edit /non/existent/file.yaml")
-      
+
       -- Should not throw an error
       assert.has_no.errors(function()
         topsail.copy_resource()
@@ -72,7 +72,7 @@ data:
       -- Test with notify enabled
       topsail.config.notify = true
       vim.cmd("edit " .. temp_file)
-      
+
       -- Mock vim.notify to capture calls
       local notify_called = false
       local original_notify = vim.notify
@@ -81,10 +81,10 @@ data:
         assert.is_string(msg)
         assert.is_true(msg:find("copied", 1, true) ~= nil)
       end
-      
+
       topsail.copy_resource()
       assert.is_true(notify_called)
-      
+
       -- Restore original notify
       vim.notify = original_notify
     end)
@@ -93,17 +93,17 @@ data:
       -- Test with notify disabled
       topsail.config.notify = false
       vim.cmd("edit " .. temp_file)
-      
+
       -- Mock vim.notify to capture calls
       local notify_called = false
       local original_notify = vim.notify
       vim.notify = function(msg, level)
         notify_called = true
       end
-      
+
       topsail.copy_resource()
       assert.is_false(notify_called)
-      
+
       -- Restore original notify
       vim.notify = original_notify
     end)
@@ -117,10 +117,10 @@ data:
     it("should allow custom copy keymap configuration", function()
       local custom_config = {
         keymaps = {
-          copy = "<leader>kx"
-        }
+          copy = "<leader>kx",
+        },
       }
-      
+
       topsail.setup(custom_config)
       assert.equals("<leader>kx", topsail.config.keymaps.copy)
     end)
@@ -128,10 +128,10 @@ data:
     it("should preserve other keymap settings when customizing", function()
       local custom_config = {
         keymaps = {
-          copy = "<leader>kx"
-        }
+          copy = "<leader>kx",
+        },
       }
-      
+
       topsail.setup(custom_config)
       assert.equals("<leader>ka", topsail.config.keymaps.apply)
       assert.equals("<leader>kc", topsail.config.keymaps.create)
@@ -162,17 +162,17 @@ data:
 
     it("should detect valid kubernetes resources", function()
       vim.cmd("edit " .. temp_file)
-      
+
       local detection_result = nil
       topsail.detect_kubernetes_resource(function(is_kubernetes)
         detection_result = is_kubernetes
       end)
-      
+
       -- Wait a bit for the async operation
       vim.wait(1000, function()
         return detection_result ~= nil
       end)
-      
+
       -- Should detect as kubernetes resource
       assert.is_true(detection_result)
     end)
