@@ -13,10 +13,10 @@ local function extract_resource_content(file_path, target_line)
   if not file then
     return nil
   end
-  
+
   local content = file:read("*a")
   file:close()
-  
+
   -- Try treesitter approach first
   local lang = vim.treesitter.language.get_lang("yaml")
   if lang then
@@ -48,7 +48,7 @@ local function extract_resource_content(file_path, target_line)
             local start_row, start_col, end_row, end_col = target_resource_node:range()
             local lines = vim.split(content, "\n")
             local resource_lines = {}
-            
+
             for i = start_row + 1, end_row + 1 do
               if i <= #lines then
                 local line = lines[i]
@@ -61,7 +61,7 @@ local function extract_resource_content(file_path, target_line)
                 table.insert(resource_lines, line)
               end
             end
-            
+
             return table.concat(resource_lines, "\n")
           end
         end
@@ -74,7 +74,7 @@ local function extract_resource_content(file_path, target_line)
   local resource_lines = {}
   local start_line = target_line
   local base_indent = nil
-  
+
   -- Find the start of the resource (look for apiVersion or kind at same or less indentation)
   for i = target_line, 1, -1 do
     local line = lines[i]
@@ -84,12 +84,12 @@ local function extract_resource_content(file_path, target_line)
       break
     end
   end
-  
+
   -- Extract from start_line until we hit another resource or end
   for i = start_line, #lines do
     local line = lines[i]
     local current_indent = line:match("^(%s*)")
-    
+
     if i == start_line then
       table.insert(resource_lines, line)
     elseif line:match("^%s*$") then
@@ -98,35 +98,47 @@ local function extract_resource_content(file_path, target_line)
       table.insert(resource_lines, line)
     elseif line:match("^%s*%-%-%-") then
       break
-    elseif base_indent and #current_indent <= #base_indent and (line:match("^%s*apiVersion:") or line:match("^%s*kind:")) then
+    elseif
+      base_indent
+      and #current_indent <= #base_indent
+      and (line:match("^%s*apiVersion:") or line:match("^%s*kind:"))
+    then
       break
     else
       table.insert(resource_lines, line)
     end
   end
-  
+
   -- Remove trailing empty lines
   while #resource_lines > 0 and resource_lines[#resource_lines]:match("^%s*$") do
     table.remove(resource_lines)
   end
-  
+
   return table.concat(resource_lines, "\n")
 end
 
 local columns = {
-  { name = "Name", width = 24 },
-  { name = "Namespace", width = 24 },
-  { name = "Kind", width = 20 },
-  { name = "API Version", width = 28 },
-  { name = "File", width = 24 },
+  { name = "Name", width = 20 },
+  { name = "Namespace", width = 15 },
+  { name = "Kind", width = 25 },
+  { name = "API Version", width = 25 },
+  { name = "File", width = 20 },
   { name = "Path", width = 30 },
 }
 
 --- Format a table entry for telescope display
 --- @param entry { apiVersion: string, kind: string, name: string, namespace: string, lnum: integer, filename: string, dir: string, full_path: string }
 local function convert_to_telescope(entry)
-  -- Create a properly aligned display string
-  local name_display = entry.namespace and entry.name .. " (" .. entry.namespace .. ")" or entry.name
+  -- Truncate long values to fit within column widths
+  local function truncate(str, max_width)
+    if not str then
+      return ""
+    end
+    if #str <= max_width then
+      return str
+    end
+    return str:sub(1, max_width - 3) .. "..."
+  end
 
   local display = string.format(
     "%-"
@@ -140,12 +152,12 @@ local function convert_to_telescope(entry)
       .. "s %-"
       .. columns[5].width
       .. "s %-s",
-    entry.name or "",
-    entry.namespace or "",
-    entry.kind or "",
-    entry.apiVersion or "",
-    entry.filename or "",
-    entry.dir or ""
+    truncate(entry.name or "", columns[1].width),
+    truncate(entry.namespace or "", columns[2].width),
+    truncate(entry.kind or "", columns[3].width),
+    truncate(entry.apiVersion or "", columns[4].width),
+    truncate(entry.filename or "", columns[5].width),
+    truncate(entry.dir or "", columns[6].width)
   )
 
   -- Create the ordinal string with nil checks
@@ -195,13 +207,13 @@ local function parse(file_path)
     vim.notify("Failed to create YAML parser.", vim.log.levels.ERROR)
     return nil
   end
-  
+
   local ok_parse, trees = pcall(parser.parse, parser)
   if not ok_parse or not trees or #trees == 0 then
     vim.notify("Failed to parse YAML content.", vim.log.levels.ERROR)
     return nil
   end
-  
+
   local tree = trees[1]
   local root = tree:root()
   local ts_query = vim.treesitter.query.get(lang, "kubernetes_resources")
@@ -375,7 +387,25 @@ function M.workspace()
       sorter = conf.generic_sorter({}),
       attach_mappings = function(prompt_bufnr, map)
         -- Add a header row
-        local header = string.format("%-20s %-25s %-25s %-25s %-s", "Name", "Kind", "Api Version", "File", "Path")
+        local header = string.format(
+          "%-"
+            .. columns[1].width
+            .. "s %-"
+            .. columns[2].width
+            .. "s %-"
+            .. columns[3].width
+            .. "s %-"
+            .. columns[4].width
+            .. "s %-"
+            .. columns[5].width
+            .. "s %-s",
+          columns[1].name,
+          columns[2].name,
+          columns[3].name,
+          columns[4].name,
+          columns[5].name,
+          columns[6].name
+        )
         vim.api.nvim_buf_set_lines(prompt_bufnr, 0, 0, false, { header, string.rep("-", #header) })
 
         actions.select_default:replace(function()
@@ -384,7 +414,7 @@ function M.workspace()
           vim.cmd("edit " .. selection.path)
           vim.api.nvim_win_set_cursor(0, { selection.lnum, 0 })
         end)
-        
+
         map("i", "<C-y>", function()
           local selection = action_state.get_selected_entry()
           local file = io.open(selection.path, "r")
@@ -397,7 +427,7 @@ function M.workspace()
             vim.notify("Failed to open file: " .. selection.path, vim.log.levels.ERROR)
           end
         end)
-        
+
         map("n", "<C-y>", function()
           local selection = action_state.get_selected_entry()
           local file = io.open(selection.path, "r")
@@ -410,7 +440,7 @@ function M.workspace()
             vim.notify("Failed to open file: " .. selection.path, vim.log.levels.ERROR)
           end
         end)
-        
+
         map("i", "<C-r>", function()
           local selection = action_state.get_selected_entry()
           local resource_content = extract_resource_content(selection.path, selection.lnum)
@@ -421,7 +451,7 @@ function M.workspace()
             vim.notify("Failed to extract resource from file: " .. selection.path, vim.log.levels.ERROR)
           end
         end)
-        
+
         map("n", "<C-r>", function()
           local selection = action_state.get_selected_entry()
           local resource_content = extract_resource_content(selection.path, selection.lnum)
@@ -432,7 +462,7 @@ function M.workspace()
             vim.notify("Failed to extract resource from file: " .. selection.path, vim.log.levels.ERROR)
           end
         end)
-        
+
         return true
       end,
     })
@@ -468,7 +498,7 @@ function M.single_file()
                   vim.cmd("edit " .. selection.path)
                   vim.api.nvim_win_set_cursor(0, { selection.lnum, 0 })
                 end)
-                
+
                 map("i", "<C-y>", function()
                   local selection = action_state.get_selected_entry()
                   local file = io.open(selection.path, "r")
@@ -481,7 +511,7 @@ function M.single_file()
                     vim.notify("Failed to open file: " .. selection.path, vim.log.levels.ERROR)
                   end
                 end)
-                
+
                 map("n", "<C-y>", function()
                   local selection = action_state.get_selected_entry()
                   local file = io.open(selection.path, "r")
@@ -494,7 +524,7 @@ function M.single_file()
                     vim.notify("Failed to open file: " .. selection.path, vim.log.levels.ERROR)
                   end
                 end)
-                
+
                 map("i", "<C-r>", function()
                   local selection = action_state.get_selected_entry()
                   local resource_content = extract_resource_content(selection.path, selection.lnum)
@@ -505,7 +535,7 @@ function M.single_file()
                     vim.notify("Failed to extract resource from file: " .. selection.path, vim.log.levels.ERROR)
                   end
                 end)
-                
+
                 map("n", "<C-r>", function()
                   local selection = action_state.get_selected_entry()
                   local resource_content = extract_resource_content(selection.path, selection.lnum)
@@ -516,7 +546,7 @@ function M.single_file()
                     vim.notify("Failed to extract resource from file: " .. selection.path, vim.log.levels.ERROR)
                   end
                 end)
-                
+
                 return true
               end,
             })
