@@ -47,11 +47,11 @@ spec:
     -- Create temporary test files
     temp_file_single = vim.fn.tempname() .. ".yaml"
     temp_file_multiple = vim.fn.tempname() .. ".yaml"
-    
+
     local file = io.open(temp_file_single, "w")
     file:write(test_yaml_single)
     file:close()
-    
+
     file = io.open(temp_file_multiple, "w")
     file:write(test_yaml_multiple)
     file:close()
@@ -71,7 +71,7 @@ spec:
     it("should handle treesitter unavailable gracefully", function()
       -- When treesitter is not available, function should return nil gracefully
       local resources = picker.get_kubernetes_yaml_resources(temp_file_single)
-      
+
       -- In test environment without treesitter, this may return nil
       -- This is expected behavior and the function should not crash
       assert.has_no.errors(function()
@@ -85,21 +85,12 @@ spec:
     end)
   end)
 
-  describe("resource extraction", function()
-    it("should handle extraction gracefully when treesitter unavailable", function()
-      -- Test that the function doesn't crash when treesitter is unavailable
-      assert.has_no.errors(function()
-        picker.get_kubernetes_yaml_resources(temp_file_single)
-      end)
-    end)
-  end)
-
   describe("file content reading", function()
     it("should read entire file content", function()
       local file = io.open(temp_file_single, "r")
       local content = file:read("*a")
       file:close()
-      
+
       assert.is_not_nil(content)
       assert.is_true(content:find("apiVersion: v1", 1, true) ~= nil)
       assert.is_true(content:find("kind: ConfigMap", 1, true) ~= nil)
