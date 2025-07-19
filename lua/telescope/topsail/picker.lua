@@ -20,17 +20,6 @@ local function copy_file_to_register(selection)
   end
 end
 
--- Helper function to copy specific resource content to register
-local function copy_resource_to_register(selection)
-  local resource_content = extract_resource_content(selection.path, selection.lnum)
-  if resource_content then
-    vim.fn.setreg('"', resource_content)
-    vim.notify("Kubernetes resource copied to default register", vim.log.levels.INFO)
-  else
-    vim.notify("Failed to extract resource from file: " .. selection.path, vim.log.levels.ERROR)
-  end
-end
-
 -- Extract a specific Kubernetes resource from a YAML file using treesitter
 local function extract_resource_content(file_path, target_line)
   local file = io.open(file_path, "r")
@@ -139,6 +128,17 @@ local function extract_resource_content(file_path, target_line)
   end
 
   return table.concat(resource_lines, "\n")
+end
+
+-- Helper function to copy specific resource content to register
+local function copy_resource_to_register(selection)
+  local resource_content = extract_resource_content(selection.path, selection.lnum)
+  if resource_content then
+    vim.fn.setreg('"', resource_content)
+    vim.notify("Kubernetes resource copied to default register", vim.log.levels.INFO)
+  else
+    vim.notify("Failed to extract resource from file: " .. selection.path, vim.log.levels.ERROR)
+  end
 end
 
 local columns = {
