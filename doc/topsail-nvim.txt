@@ -8,6 +8,8 @@ Table of Contents                             *topsail-nvim-table-of-contents*
   - Installation                      |topsail-nvim-topsail.nvim-installation|
   - Setup                                    |topsail-nvim-topsail.nvim-setup|
   - Commands                              |topsail-nvim-topsail.nvim-commands|
+  - Copy Functionality          |topsail-nvim-topsail.nvim-copy-functionality|
+  - Usage Examples              |topsail-nvim-topsail.nvim-usage-examples|
   - Mappings                              |topsail-nvim-topsail.nvim-mappings|
   - Configuration                    |topsail-nvim-topsail.nvim-configuration|
   - Requirements                      |topsail-nvim-topsail.nvim-requirements|
@@ -23,8 +25,10 @@ FEATURES                                  *topsail-nvim-topsail.nvim-features*
 
 - Automatic detection of Kubernetes YAML files
 - Apply and Create resources directly from Neovim
-- Async operations that don’t block the editor
+- Copy Kubernetes resources to clipboard/register
+- Async operations that don't block the editor
 - Configurable keymaps and notifications
+- Telescope integration for searching and managing Kubernetes resources
 
 
 INSTALLATION                          *topsail-nvim-topsail.nvim-installation*
@@ -51,14 +55,14 @@ SETUP                                        *topsail-nvim-topsail.nvim-setup*
 You can setup the plugin with custom configuration:
 
 >lua
-    require('topsail').setup({
-        notify = true,  -- Enable notifications
-        keymaps = {
-            apply = '<leader>ka',
-            create = '<leader>kc'
-        }
-    })
-<
+require('topsail').setup({
+    notify = true,  -- Enable notifications
+    keymaps = {
+        apply = '<leader>ka',
+        create = '<leader>kc',
+        copy = '<leader>ky'
+    }
+})<
 
 
 COMMANDS                                  *topsail-nvim-topsail.nvim-commands*
@@ -66,13 +70,52 @@ COMMANDS                                  *topsail-nvim-topsail.nvim-commands*
 - `:KubernetesApply` - Apply the current YAML file as a Kubernetes resource.
 - `:KubernetesCreate` - Create a new Kubernetes resource from the current YAML file.
 
+COPY FUNCTIONALITY                   *topsail-nvim-topsail.nvim-copy-functionality*
+
+Topsail provides multiple ways to copy Kubernetes resources:
+
+Buffer Keymaps (when editing a Kubernetes YAML file):
+- `<leader>ky` - Copy the entire YAML file content to the default register
+
+Telescope Picker Keymaps:
+When using `:Telescope topsail workspace` or `:Telescope topsail single_file`:
+
+- `<C-y>` - Copy the entire YAML file to the default register
+- `<C-r>` - Copy only the selected Kubernetes resource to the default register
+
+The `<C-r>` mapping is particularly useful for files containing multiple 
+Kubernetes resources separated by `---`. It intelligently extracts just the 
+specific resource you have selected, using treesitter for precise boundaries 
+when available, with a smart fallback to line-based parsing.
+
+USAGE EXAMPLES                       *topsail-nvim-topsail.nvim-usage-examples*
+
+Copying from a single resource file:
+1. Open a Kubernetes YAML file (e.g., `deployment.yaml`)
+2. Press `<leader>ky` to copy the entire file to your default register
+3. Paste anywhere with `p` or `"0p`
+
+Copying from telescope picker:
+1. Run `:Telescope topsail workspace` to see all Kubernetes resources
+2. Navigate to the resource you want
+3. Press `<C-y>` to copy the entire file, or `<C-r>` to copy just that resource
+4. Press `<Esc>` to close telescope and paste with `p`
+
+Copying specific resources from multi-resource files:
+For a file containing multiple resources separated by `---`, use the telescope
+picker to select a specific resource, then press `<C-r>` to copy only that
+resource (not the entire file).
+
 
 MAPPINGS                                  *topsail-nvim-topsail.nvim-mappings*
 
-Default mappings (can be customized in setup):
+Buffer-local mappings (automatically set when editing Kubernetes YAML files):
 
 - `<leader>ka` - Apply the current Kubernetes resource
-- `<leader>kc` - Create a new Kubernetes resource
+- `<leader>kc` - Create the current Kubernetes resource
+- `<leader>ky` - Copy the current YAML file to the default register
+
+These mappings can be customized via the `keymaps` configuration option.
 
 
 CONFIGURATION                        *topsail-nvim-topsail.nvim-configuration*
@@ -84,7 +127,8 @@ Configuration options:
         notify = true,      -- Enable/disable notifications
         keymaps = {         -- Customize keymaps
             apply = '<leader>ka',
-            create = '<leader>kc'
+            create = '<leader>kc',
+            copy = '<leader>ky'
         }
     }
 <
