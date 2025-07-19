@@ -32,10 +32,10 @@
   (#eq? @_metadata_key "metadata")
   value: (block_node
            (block_mapping
-             (block_mapping_pair
-               key: (flow_node (plain_scalar (string_scalar) @_name_key))
-               value: (flow_node (_) @name)
-               (#eq? @_name_key "name")))))
+               (block_mapping_pair
+                 key: (flow_node (plain_scalar (string_scalar) @_name_key))
+                 value: (flow_node (_) @name)
+                 (#match? @_name_key "^(name|generateName)$")))))
 
 ; Match namespace in metadata (optional)
 (block_mapping_pair
