@@ -3,7 +3,7 @@ local M = {}
 ---@class TopsailConfig
 ---@field notify boolean
 ---@field copy_register fun(): string
----@field keymaps { apply: string, create: string, copy: string }
+---@field keymaps { apply: string, create: string, copy: string, telescope_copy_file: string, telescope_copy_resource: string }
 
 ---@type TopsailConfig
 -- Configuration with defaults
@@ -16,6 +16,8 @@ M.config = {
     apply = "<leader>ka",
     create = "<leader>kc",
     copy = "<leader>ky",
+    telescope_copy_file = "<C-y>",
+    telescope_copy_resource = "<C-r>",
   },
 }
 
@@ -136,7 +138,7 @@ end
 function M.setup(opts)
   -- Merge user config with defaults
   M.config = vim.tbl_deep_extend("force", M.config, opts or {})
-  -- require("topsail.picker").setup(M.config)
+  require("telescope.topsail.picker").setup(M.config)
 
   setup_autocommands()
 end
