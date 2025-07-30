@@ -35,13 +35,14 @@ data:
     end
 
     -- Clear any test registers
-    vim.fn.setreg('"', "")
+    vim.fn.setreg("+", "")
   end)
 
   describe("copy_resource function", function()
     it("should copy file content to default register", function()
+      local reg = topsail.config.copy_register()
       -- Clear register first
-      vim.fn.setreg('"', "")
+      vim.fn.setreg(reg, "")
 
       -- Open the test file
       vim.cmd("edit " .. temp_file)
@@ -50,7 +51,30 @@ data:
       topsail.copy_resource()
 
       -- Check that content was copied to register
-      local register_content = vim.fn.getreg('"')
+      local register_content = vim.fn.getreg(reg)
+      assert.is_not_nil(register_content)
+      assert.is_true(#register_content > 0)
+      assert.is_true(register_content:find("apiVersion: v1", 1, true) ~= nil)
+      assert.is_true(register_content:find("kind: ConfigMap", 1, true) ~= nil)
+      assert.is_true(register_content:find("name: test-config", 1, true) ~= nil)
+    end)
+
+    it("should copy file content to custom register", function()
+      topsail.config.copy_register = function()
+        return "a"
+      end
+      local reg = topsail.config.copy_register()
+      -- Clear register first
+      vim.fn.setreg(reg, "")
+
+      -- Open the test file
+      vim.cmd("edit " .. temp_file)
+
+      -- Call copy_resource function
+      topsail.copy_resource()
+
+      -- Check that content was copied to register
+      local register_content = vim.fn.getreg(reg)
       assert.is_not_nil(register_content)
       assert.is_true(#register_content > 0)
       assert.is_true(register_content:find("apiVersion: v1", 1, true) ~= nil)

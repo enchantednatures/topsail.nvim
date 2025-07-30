@@ -1,8 +1,17 @@
 local M = {}
 
+---@class TopsailConfig
+---@field notify boolean
+---@field copy_register fun(): string
+---@field keymaps { apply: string, create: string, copy: string }
+
+---@type TopsailConfig
 -- Configuration with defaults
 M.config = {
   notify = true,
+  copy_register = function()
+    return "+"
+  end,
   keymaps = {
     apply = "<leader>ka",
     create = "<leader>kc",
@@ -100,10 +109,11 @@ function M.copy_resource()
 
   local content = file:read("*a")
   file:close()
+  local reg = M.config.copy_register()
 
-  vim.fn.setreg('"', content)
+  vim.fn.setreg(reg, content)
   if M.config.notify then
-    vim.notify("YAML resource copied to default register", vim.log.levels.INFO)
+    vim.notify("YAML resource copied to register " .. reg, vim.log.levels.INFO)
   end
 end
 
@@ -126,6 +136,7 @@ end
 function M.setup(opts)
   -- Merge user config with defaults
   M.config = vim.tbl_deep_extend("force", M.config, opts or {})
+  -- require("topsail.picker").setup(M.config)
 
   setup_autocommands()
 end

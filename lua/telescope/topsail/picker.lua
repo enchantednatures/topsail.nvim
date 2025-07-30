@@ -5,16 +5,32 @@ local actions = require("telescope.actions")
 local action_state = require("telescope.actions.state")
 local scandir = require("plenary.scandir")
 
-local M = {}
+local M = {
+  config = {
+    default_register = function()
+      return "+"
+    end,
+  },
+}
+
+---@param opts TopsailConfig
+function M.setup(opts)
+  M.config = vim.tbl_deep_extend("force", M.config, opts or {})
+end
 
 -- Helper function to copy entire file content to register
-local function copy_file_to_register(selection)
+local function copy_file_to_register(selection, opts)
+  if not opts then
+    return
+  end
   local file = io.open(selection.path, "r")
+
   if file then
     local content = file:read("*a")
     file:close()
-    vim.fn.setreg('"', content)
-    vim.notify("Entire YAML file copied to default register", vim.log.levels.INFO)
+
+    vim.fn.setreg(opts.register, content)
+    vim.notify("Entire YAML file copied to register " .. opts.register, vim.log.levels.INFO)
   else
     vim.notify("Failed to open file: " .. selection.path, vim.log.levels.ERROR)
   end
@@ -131,11 +147,14 @@ local function extract_resource_content(file_path, target_line)
 end
 
 -- Helper function to copy specific resource content to register
-local function copy_resource_to_register(selection)
+local function copy_resource_to_register(selection, opts)
+  if not opts then
+    return
+  end
   local resource_content = extract_resource_content(selection.path, selection.lnum)
   if resource_content then
-    vim.fn.setreg('"', resource_content)
-    vim.notify("Kubernetes resource copied to default register", vim.log.levels.INFO)
+    vim.fn.setreg(opts.register, resource_content)
+    vim.notify("Kubernetes resource copied to register " .. opts.register, vim.log.levels.INFO)
   else
     vim.notify("Failed to extract resource from file: " .. selection.path, vim.log.levels.ERROR)
   end
@@ -413,24 +432,80 @@ function M.workspace()
           vim.api.nvim_win_set_cursor(0, { selection.lnum, 0 })
         end)
 
-        map("i", "<C-y>", function()
-          local selection = action_state.get_selected_entry()
-          copy_file_to_register(selection)
-        end)
+        local opts = { register = M.config.default_register() }
+
+                map("i", "<C-y>", function()
+                  local selection = action_state.get_selected_entry()
+                  local opts = { register = M.config.default_register() }
+                  copy_file_to_register(selection, opts)
+                end)
+
+                map("n", "<C-y>", function()
+                  local selection = action_state.get_selected_entry()
+                  local opts = { register = M.config.default_register() }
+                  copy_file_to_register(selection, opts)
+                end)
+
+                map("i", "<C-r>", function()
+                  local selection = action_state.get_selected_entry()
+                  local opts = { register = M.config.default_register() }
+                  copy_resource_to_register(selection, opts)
+                end)
+
+                map("n", "<C-r>", function()
+                  local selection = action_state.get_selected_entry()
+                  local opts = { register = M.config.default_register() }
+                  copy_resource_to_register(selection, opts)
+                end)
 
         map("n", "<C-y>", function()
           local selection = action_state.get_selected_entry()
-          copy_file_to_register(selection)
+          local opts = { register = M.config.default_register() }
+          copy_file_to_register(selection, opts)
         end)
 
         map("i", "<C-r>", function()
           local selection = action_state.get_selected_entry()
-          copy_resource_to_register(selection)
+          local opts = { register = M.config.default_register() }
+          copy_resource_to_register(selection, opts)
         end)
 
         map("n", "<C-r>", function()
           local selection = action_state.get_selected_entry()
-          copy_resource_to_register(selection)
+          local opts = { register = M.config.default_register() }
+          copy_resource_to_register(selection, opts)
+        end)
+        map("n", "<C-y>", function()
+          local selection = action_state.get_selected_entry()
+          local opts = { register = get_target_register() }
+          copy_file_to_register(selection, opts)
+        end)
+
+        map("i", "<C-r>", function()
+          local selection = action_state.get_selected_entry()
+          local opts = { register = get_target_register() }
+          copy_resource_to_register(selection, opts)
+        end)
+
+        map("n", "<C-r>", function()
+          local selection = action_state.get_selected_entry()
+          local opts = { register = get_target_register() }
+          copy_resource_to_register(selection, opts)
+        end)
+
+        map("n", "<C-y>", function()
+          local selection = action_state.get_selected_entry()
+          copy_file_to_register(selection, opts)
+        end)
+
+        map("i", "<C-r>", function()
+          local selection = action_state.get_selected_entry()
+          copy_resource_to_register(selection, opts)
+        end)
+
+        map("n", "<C-r>", function()
+          local selection = action_state.get_selected_entry()
+          copy_resource_to_register(selection, opts)
         end)
 
         return true
@@ -469,24 +544,26 @@ function M.single_file()
                   vim.api.nvim_win_set_cursor(0, { selection.lnum, 0 })
                 end)
 
+                local opts = { register = M.config.default_register() }
+
                 map("i", "<C-y>", function()
                   local selection = action_state.get_selected_entry()
-                  copy_file_to_register(selection)
+                  copy_file_to_register(selection, opts)
                 end)
 
                 map("n", "<C-y>", function()
                   local selection = action_state.get_selected_entry()
-                  copy_file_to_register(selection)
+                  copy_file_to_register(selection, opts)
                 end)
 
                 map("i", "<C-r>", function()
                   local selection = action_state.get_selected_entry()
-                  copy_resource_to_register(selection)
+                  copy_resource_to_register(selection, opts)
                 end)
 
                 map("n", "<C-r>", function()
                   local selection = action_state.get_selected_entry()
-                  copy_resource_to_register(selection)
+                  copy_resource_to_register(selection, opts)
                 end)
 
                 return true
