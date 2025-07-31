@@ -13,10 +13,22 @@ data:
 
   local temp_file
   local original_config
+  local original_jobstart
 
   before_each(function()
-    -- Save original config
+    -- Save original config and functions
     original_config = vim.deepcopy(topsail.config)
+    original_jobstart = vim.fn.jobstart
+    
+    -- Mock kubectl for detection
+    vim.fn.jobstart = function(cmd, opts)
+      if cmd[2] == "apply" and cmd[3] == "--dry-run=client" then
+        vim.schedule(function()
+          opts.on_exit(0, 0)  -- Success - valid k8s resource
+        end)
+      end
+      return 1
+    end
 
     -- Create temporary test file
     temp_file = vim.fn.tempname() .. ".yaml"
@@ -26,8 +38,9 @@ data:
   end)
 
   after_each(function()
-    -- Restore original config
+    -- Restore original config and functions
     topsail.config = original_config
+    vim.fn.jobstart = original_jobstart
 
     -- Clean up temporary file
     if temp_file then

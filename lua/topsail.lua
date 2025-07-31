@@ -1,7 +1,15 @@
 local M = {}
 
+-- Helper function to log messages with level filtering
+local function log_message(message, level)
+  if M.config.notify and level >= M.config.log_level then
+    vim.notify(message, level)
+  end
+end
+
 ---@class TopsailConfig
 ---@field notify boolean
+---@field log_level number
 ---@field copy_register fun(): string
 ---@field keymaps { apply: string, create: string, copy: string, telescope_copy_file: string, telescope_copy_resource: string }
 
@@ -9,6 +17,7 @@ local M = {}
 -- Configuration with defaults
 M.config = {
   notify = true,
+  log_level = vim.log.levels.INFO,
   copy_register = function()
     return "+"
   end,
@@ -30,9 +39,7 @@ local function setup_autocommands()
     callback = function(args)
       M.detect_kubernetes_resource(function(is_kubernetes)
         if is_kubernetes then
-          if M.config.notify then
-            vim.notify("Kubernetes resource detected", vim.log.levels.DEBUG)
-          end
+          log_message("Kubernetes resource detected", vim.log.levels.DEBUG)
           vim.schedule(function()
             M.setup_buffer_keymaps()
           end)
@@ -67,13 +74,13 @@ function M.create_resource()
     stdout_buffered = true,
     stderr_buffered = true,
     on_stdout = function(_, data)
-      if data and M.config.notify then
-        vim.notify(table.concat(data, "\n"), vim.log.levels.INFO)
+      if data then
+        log_message(table.concat(data, "\n"), vim.log.levels.INFO)
       end
     end,
     on_stderr = function(_, data)
-      if data and M.config.notify then
-        vim.notify(table.concat(data, "\n"), vim.log.levels.ERROR)
+      if data then
+        log_message(table.concat(data, "\n"), vim.log.levels.ERROR)
       end
     end,
   })
@@ -87,13 +94,13 @@ function M.apply_resource()
     stdout_buffered = true,
     stderr_buffered = true,
     on_stdout = function(_, data)
-      if data and M.config.notify then
-        vim.notify(table.concat(data, "\n"), vim.log.levels.INFO)
+      if data then
+        log_message(table.concat(data, "\n"), vim.log.levels.INFO)
       end
     end,
     on_stderr = function(_, data)
-      if data and M.config.notify then
-        vim.notify(table.concat(data, "\n"), vim.log.levels.ERROR)
+      if data then
+        log_message(table.concat(data, "\n"), vim.log.levels.ERROR)
       end
     end,
   })
@@ -103,9 +110,7 @@ function M.copy_resource()
   local current_file = vim.fn.expand("%")
   local file = io.open(current_file, "r")
   if not file then
-    if M.config.notify then
-      vim.notify("Failed to open file: " .. current_file, vim.log.levels.ERROR)
-    end
+    log_message("Failed to open file: " .. current_file, vim.log.levels.ERROR)
     return
   end
 
@@ -114,9 +119,7 @@ function M.copy_resource()
   local reg = M.config.copy_register()
 
   vim.fn.setreg(reg, content)
-  if M.config.notify then
-    vim.notify("YAML resource copied to register " .. reg, vim.log.levels.INFO)
-  end
+  log_message("YAML resource copied to register " .. reg, vim.log.levels.INFO)
 end
 
 function M.setup_buffer_keymaps()

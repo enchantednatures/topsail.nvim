@@ -18,6 +18,7 @@ describe("plugin configuration", function()
 
     -- Check default values
     assert.equals(true, plugin.config.notify)
+    assert.equals(vim.log.levels.INFO, plugin.config.log_level)
     assert.equals("<leader>ka", plugin.config.keymaps.apply)
     assert.equals("<leader>kc", plugin.config.keymaps.create)
     assert.equals("<leader>ky", plugin.config.keymaps.copy)
@@ -74,5 +75,17 @@ describe("plugin configuration", function()
     assert.equals("<leader>ka", plugin.config.keymaps.apply)
     assert.equals("<leader>kc", plugin.config.keymaps.create)
     assert.equals("<leader>ky", plugin.config.keymaps.copy)
+  end)
+
+  it("should allow customizing log level", function()
+    plugin.setup({
+      log_level = vim.log.levels.ERROR,
+    })
+
+    -- Check log level configuration
+    assert.equals(vim.log.levels.ERROR, plugin.config.log_level)
+    -- Check other defaults are preserved
+    assert.equals(true, plugin.config.notify)
+    assert.equals("<leader>ka", plugin.config.keymaps.apply)
   end)
 end)

@@ -10,12 +10,20 @@ local M = {
     default_register = function()
       return "+"
     end,
+    log_level = vim.log.levels.INFO,
     keymaps = {
       telescope_copy_file = "<C-y>",
       telescope_copy_resource = "<C-r>",
     },
   },
 }
+
+-- Helper function to log messages with level filtering
+local function log_message(message, level)
+  if level >= M.config.log_level then
+    vim.notify(message, level)
+  end
+end
 
 ---@param opts TopsailConfig
 function M.setup(opts)
@@ -34,9 +42,9 @@ local function copy_file_to_register(selection, opts)
     file:close()
 
     vim.fn.setreg(opts.register, content)
-    vim.notify("Entire YAML file copied to register " .. opts.register, vim.log.levels.INFO)
+    log_message("Entire YAML file copied to register " .. opts.register, vim.log.levels.INFO)
   else
-    vim.notify("Failed to open file: " .. selection.path, vim.log.levels.ERROR)
+    log_message("Failed to open file: " .. selection.path, vim.log.levels.ERROR)
   end
 end
 
@@ -158,9 +166,9 @@ local function copy_resource_to_register(selection, opts)
   local resource_content = extract_resource_content(selection.path, selection.lnum)
   if resource_content then
     vim.fn.setreg(opts.register, resource_content)
-    vim.notify("Kubernetes resource copied to register " .. opts.register, vim.log.levels.INFO)
+    log_message("Kubernetes resource copied to register " .. opts.register, vim.log.levels.INFO)
   else
-    vim.notify("Failed to extract resource from file: " .. selection.path, vim.log.levels.ERROR)
+    log_message("Failed to extract resource from file: " .. selection.path, vim.log.levels.ERROR)
   end
 end
 
@@ -229,7 +237,7 @@ end
 local function parse(file_path)
   local ok, file = pcall(io.open, file_path, "r")
   if not ok or not file then
-    vim.notify("Failed to open file: " .. file_path, vim.log.levels.ERROR)
+    log_message("Failed to open file: " .. file_path, vim.log.levels.ERROR)
     return nil
   end
   local content = file:read("*a")
@@ -237,19 +245,19 @@ local function parse(file_path)
 
   local lang = vim.treesitter.language.get_lang("yaml")
   if not lang then
-    vim.notify("Treesitter YAML language not found.", vim.log.levels.ERROR)
+    log_message("Treesitter YAML language not found.", vim.log.levels.ERROR)
     return nil
   end
 
   local ok_parser, parser = pcall(vim.treesitter.get_string_parser, content, lang)
   if not ok_parser then
-    vim.notify("Failed to create YAML parser.", vim.log.levels.ERROR)
+    log_message("Failed to create YAML parser.", vim.log.levels.ERROR)
     return nil
   end
 
   local ok_parse, trees = pcall(parser.parse, parser)
   if not ok_parse or not trees or #trees == 0 then
-    vim.notify("Failed to parse YAML content.", vim.log.levels.ERROR)
+    log_message("Failed to parse YAML content.", vim.log.levels.ERROR)
     return nil
   end
 
@@ -258,7 +266,7 @@ local function parse(file_path)
   local ts_query = vim.treesitter.query.get(lang, "kubernetes_resources")
 
   if ts_query == nil then
-    vim.notify("Treesitter query 'kubernetes_resources' for yaml not found or empty.", vim.log.levels.ERROR)
+    log_message("Treesitter query 'kubernetes_resources' for yaml not found or empty.", vim.log.levels.ERROR)
     return nil
   end
   return { ts_query, root, content }
