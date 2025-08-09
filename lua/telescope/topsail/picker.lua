@@ -446,29 +446,29 @@ function M.workspace()
 
         local opts = { register = M.config.default_register() }
 
-                map("i", M.config.keymaps.telescope_copy_file, function()
-                  local selection = action_state.get_selected_entry()
-                  local opts = { register = M.config.default_register() }
-                  copy_file_to_register(selection, opts)
-                end)
+        map("i", M.config.keymaps.telescope_copy_file, function()
+          local selection = action_state.get_selected_entry()
+          local opts = { register = M.config.default_register() }
+          copy_file_to_register(selection, opts)
+        end)
 
-                map("n", M.config.keymaps.telescope_copy_file, function()
-                  local selection = action_state.get_selected_entry()
-                  local opts = { register = M.config.default_register() }
-                  copy_file_to_register(selection, opts)
-                end)
+        map("n", M.config.keymaps.telescope_copy_file, function()
+          local selection = action_state.get_selected_entry()
+          local opts = { register = M.config.default_register() }
+          copy_file_to_register(selection, opts)
+        end)
 
-                map("i", M.config.keymaps.telescope_copy_resource, function()
-                  local selection = action_state.get_selected_entry()
-                  local opts = { register = M.config.default_register() }
-                  copy_resource_to_register(selection, opts)
-                end)
+        map("i", M.config.keymaps.telescope_copy_resource, function()
+          local selection = action_state.get_selected_entry()
+          local opts = { register = M.config.default_register() }
+          copy_resource_to_register(selection, opts)
+        end)
 
-                map("n", M.config.keymaps.telescope_copy_resource, function()
-                  local selection = action_state.get_selected_entry()
-                  local opts = { register = M.config.default_register() }
-                  copy_resource_to_register(selection, opts)
-                end)
+        map("n", M.config.keymaps.telescope_copy_resource, function()
+          local selection = action_state.get_selected_entry()
+          local opts = { register = M.config.default_register() }
+          copy_resource_to_register(selection, opts)
+        end)
 
         map("n", M.config.keymaps.telescope_copy_file, function()
           local selection = action_state.get_selected_entry()
