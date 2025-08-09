@@ -1,11 +1,32 @@
 local M = {}
 
+-- Helper function to log messages with level filtering
+local function log_message(message, level)
+  if M.config.notify and level >= M.config.log_level then
+    vim.notify(message, level)
+  end
+end
+
+---@class TopsailConfig
+---@field notify boolean
+---@field log_level number
+---@field copy_register fun(): string
+---@field keymaps { apply: string, create: string, copy: string, telescope_copy_file: string, telescope_copy_resource: string }
+
+---@type TopsailConfig
 -- Configuration with defaults
 M.config = {
   notify = true,
+  log_level = vim.log.levels.INFO,
+  copy_register = function()
+    return "+"
+  end,
   keymaps = {
     apply = "<leader>ka",
     create = "<leader>kc",
+    copy = "<leader>ky",
+    telescope_copy_file = "<C-y>",
+    telescope_copy_resource = "<C-r>",
   },
 }
 
@@ -18,9 +39,7 @@ local function setup_autocommands()
     callback = function(args)
       M.detect_kubernetes_resource(function(is_kubernetes)
         if is_kubernetes then
-          if M.config.notify then
-            vim.notify("Kubernetes resource detected", vim.log.levels.DEBUG)
-          end
+          log_message("Kubernetes resource detected", vim.log.levels.DEBUG)
           vim.schedule(function()
             M.setup_buffer_keymaps()
           end)
@@ -55,13 +74,13 @@ function M.create_resource()
     stdout_buffered = true,
     stderr_buffered = true,
     on_stdout = function(_, data)
-      if data and M.config.notify then
-        vim.notify(table.concat(data, "\n"), vim.log.levels.INFO)
+      if data then
+        log_message(table.concat(data, "\n"), vim.log.levels.INFO)
       end
     end,
     on_stderr = function(_, data)
-      if data and M.config.notify then
-        vim.notify(table.concat(data, "\n"), vim.log.levels.ERROR)
+      if data then
+        log_message(table.concat(data, "\n"), vim.log.levels.ERROR)
       end
     end,
   })
@@ -75,16 +94,32 @@ function M.apply_resource()
     stdout_buffered = true,
     stderr_buffered = true,
     on_stdout = function(_, data)
-      if data and M.config.notify then
-        vim.notify(table.concat(data, "\n"), vim.log.levels.INFO)
+      if data then
+        log_message(table.concat(data, "\n"), vim.log.levels.INFO)
       end
     end,
     on_stderr = function(_, data)
-      if data and M.config.notify then
-        vim.notify(table.concat(data, "\n"), vim.log.levels.ERROR)
+      if data then
+        log_message(table.concat(data, "\n"), vim.log.levels.ERROR)
       end
     end,
   })
+end
+
+function M.copy_resource()
+  local current_file = vim.fn.expand("%")
+  local file = io.open(current_file, "r")
+  if not file then
+    log_message("Failed to open file: " .. current_file, vim.log.levels.ERROR)
+    return
+  end
+
+  local content = file:read("*a")
+  file:close()
+  local reg = M.config.copy_register()
+
+  vim.fn.setreg(reg, content)
+  log_message("YAML resource copied to register " .. reg, vim.log.levels.INFO)
 end
 
 function M.setup_buffer_keymaps()
@@ -95,11 +130,18 @@ function M.setup_buffer_keymaps()
     M.create_resource,
     { buffer = true, desc = "Create Kubernetes resource" }
   )
+  vim.keymap.set(
+    "n",
+    M.config.keymaps.copy,
+    M.copy_resource,
+    { buffer = true, desc = "Copy YAML resource to register" }
+  )
 end
 
 function M.setup(opts)
   -- Merge user config with defaults
   M.config = vim.tbl_deep_extend("force", M.config, opts or {})
+  require("telescope.topsail.picker").setup(M.config)
 
   setup_autocommands()
 end

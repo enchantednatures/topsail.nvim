@@ -28,8 +28,9 @@ jobs:
       - name: Push changes
         uses: stefanzweifel/git-auto-commit-action@v4
         with:
-          commit_message: "auto-generate vimdoc"
+          commit_message: "docs: auto-generate vimdoc from README"
           commit_user_name: "github-actions[bot]"
           commit_user_email: "github-actions[bot]@users.noreply.github.com"
           commit_author: "github-actions[bot] <github-actions[bot]@users.noreply.github.com>"
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+          file_pattern: "doc/*.txt"
+          skip_dirty_check: false
