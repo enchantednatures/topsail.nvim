@@ -19,12 +19,12 @@ data:
     -- Save original config and functions
     original_config = vim.deepcopy(topsail.config)
     original_jobstart = vim.fn.jobstart
-    
+
     -- Mock kubectl for detection
     vim.fn.jobstart = function(cmd, opts)
       if cmd[2] == "apply" and cmd[3] == "--dry-run=client" then
         vim.schedule(function()
-          opts.on_exit(0, 0)  -- Success - valid k8s resource
+          opts.on_exit(0, 0) -- Success - valid k8s resource
         end)
       end
       return 1
