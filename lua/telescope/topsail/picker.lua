@@ -172,6 +172,129 @@ local function copy_resource_to_register(selection, opts)
   end
 end
 
+-- Get the current picker width from telescope or vim
+function M.get_picker_width()
+  local ok, width = pcall(function()
+    -- Try to get the current window width
+    local win_width = vim.api.nvim_win_get_width(0)
+    -- Account for telescope UI elements (borders, prompt, etc.)
+    return math.max(80, win_width - 10)
+  end)
+  
+  if ok and width then
+    return width
+  end
+  
+  -- Fallback to terminal columns or reasonable default
+  local term_width = vim.api.nvim_get_option("columns")
+  return math.max(80, term_width - 10)
+end
+
+-- Calculate optimal column widths based on content and available space
+function M.calculate_column_widths(resources, picker_width)
+  local min_widths = {
+    name = 8,
+    namespace = 8,
+    kind = 8,
+    apiVersion = 8,
+    filename = 8,
+    dir = 8,
+  }
+  
+  local max_lengths = {
+    name = 0,
+    namespace = 0,
+    kind = 0,
+    apiVersion = 0,
+    filename = 0,
+    dir = 0,
+  }
+  
+  -- Find the maximum length for each column
+  for _, resource in ipairs(resources) do
+    max_lengths.name = math.max(max_lengths.name, string.len(resource.name or ""))
+    max_lengths.namespace = math.max(max_lengths.namespace, string.len(resource.namespace or ""))
+    max_lengths.kind = math.max(max_lengths.kind, string.len(resource.kind or ""))
+    max_lengths.apiVersion = math.max(max_lengths.apiVersion, string.len(resource.apiVersion or ""))
+    max_lengths.filename = math.max(max_lengths.filename, string.len(resource.filename or ""))
+    max_lengths.dir = math.max(max_lengths.dir, string.len(resource.dir or ""))
+  end
+  
+  -- Apply minimum widths
+  for key, min_width in pairs(min_widths) do
+    max_lengths[key] = math.max(max_lengths[key], min_width)
+  end
+  
+  -- Calculate total needed width (including spaces between columns)
+  local total_content_width = max_lengths.name + max_lengths.namespace + max_lengths.kind + 
+                             max_lengths.apiVersion + max_lengths.filename + max_lengths.dir
+  local spaces_needed = 5 -- spaces between 6 columns
+  local total_needed = total_content_width + spaces_needed
+  
+  -- If we have enough space, use the calculated widths
+  if total_needed <= picker_width then
+    return max_lengths
+  end
+  
+  -- Otherwise, proportionally reduce widths while maintaining minimums
+  local available_width = picker_width - spaces_needed
+  local scale_factor = available_width / total_content_width
+  
+  local scaled_widths = {}
+  local total_scaled = 0
+  
+  -- First pass: scale all widths
+  for key, width in pairs(max_lengths) do
+    scaled_widths[key] = math.max(min_widths[key], math.floor(width * scale_factor))
+    total_scaled = total_scaled + scaled_widths[key]
+  end
+  
+  -- Second pass: adjust if we're still over the limit
+  local remaining = available_width - total_scaled
+  if remaining < 0 then
+    -- Need to reduce further, start with the largest columns
+    local keys_by_width = {}
+    for key, width in pairs(scaled_widths) do
+      table.insert(keys_by_width, {key = key, width = width})
+    end
+    table.sort(keys_by_width, function(a, b) return a.width > b.width end)
+    
+    local reduction_needed = -remaining
+    for _, item in ipairs(keys_by_width) do
+      if reduction_needed <= 0 then break end
+      local key = item.key
+      local can_reduce = scaled_widths[key] - min_widths[key]
+      local reduce_by = math.min(can_reduce, reduction_needed)
+      scaled_widths[key] = scaled_widths[key] - reduce_by
+      reduction_needed = reduction_needed - reduce_by
+    end
+  end
+  
+  return scaled_widths
+end
+
+-- Format a table entry with calculated widths
+function M.format_table_entry(entry, widths)
+  local function truncate_or_pad(text, width)
+    text = text or ""
+    if string.len(text) > width then
+      return string.sub(text, 1, width - 3) .. "..."
+    else
+      return string.format("%-" .. width .. "s", text)
+    end
+  end
+  
+  return string.format(
+    "%s %s %s %s %s %s",
+    truncate_or_pad(entry.name, widths.name),
+    truncate_or_pad(entry.namespace, widths.namespace),
+    truncate_or_pad(entry.kind, widths.kind),
+    truncate_or_pad(entry.apiVersion, widths.apiVersion),
+    truncate_or_pad(entry.filename, widths.filename),
+    truncate_or_pad(entry.dir, widths.dir)
+  )
+end
+
 local columns = {
   { name = "Name", width = 24 },
   { name = "Namespace", width = 24 },
@@ -183,29 +306,34 @@ local columns = {
 
 --- Format a table entry for telescope display
 --- @param entry { apiVersion: string, kind: string, name: string, namespace: string, lnum: integer, filename: string, dir: string, full_path: string }
-local function convert_to_telescope(entry)
-  -- Create a properly aligned display string
-  local name_display = entry.namespace and entry.name .. " (" .. entry.namespace .. ")" or entry.name
-
-  local display = string.format(
-    "%-"
-      .. columns[1].width
-      .. "s %-"
-      .. columns[2].width
-      .. "s %-"
-      .. columns[3].width
-      .. "s %-"
-      .. columns[4].width
-      .. "s %-"
-      .. columns[5].width
-      .. "s %-s",
-    entry.name or "",
-    entry.namespace or "",
-    entry.kind or "",
-    entry.apiVersion or "",
-    entry.filename or "",
-    entry.dir or ""
-  )
+--- @param widths table Optional pre-calculated column widths
+local function convert_to_telescope(entry, widths)
+  -- Use provided widths or calculate them (fallback for compatibility)
+  local display
+  if widths then
+    display = M.format_table_entry(entry, widths)
+  else
+    -- Fallback to original fixed-width formatting for compatibility
+    display = string.format(
+      "%-"
+        .. columns[1].width
+        .. "s %-"
+        .. columns[2].width
+        .. "s %-"
+        .. columns[3].width
+        .. "s %-"
+        .. columns[4].width
+        .. "s %-"
+        .. columns[5].width
+        .. "s %-s",
+      entry.name or "",
+      entry.namespace or "",
+      entry.kind or "",
+      entry.apiVersion or "",
+      entry.filename or "",
+      entry.dir or ""
+    )
+  end
 
   -- Create the ordinal string with nil checks
   local ordinal = (entry.apiVersion or "")
@@ -423,18 +551,31 @@ function M.workspace()
   end
 
   local resources = organize_matches(all_matches)
+  
+  -- Calculate optimal column widths based on content and picker width
+  local picker_width = M.get_picker_width()
+  local widths = M.calculate_column_widths(resources, picker_width)
 
   pickers
     .new({}, {
       prompt_title = "Kubernetes Resources Table",
       finder = finders.new_table({
         results = resources,
-        entry_maker = convert_to_telescope,
+        entry_maker = function(entry)
+          return convert_to_telescope(entry, widths)
+        end,
       }),
       sorter = conf.generic_sorter({}),
       attach_mappings = function(prompt_bufnr, map)
-        -- Add a header row
-        local header = string.format("%-20s %-25s %-25s %-25s %-s", "Name", "Kind", "Api Version", "File", "Path")
+        -- Add a header row with dynamic widths
+        local header = M.format_table_entry({
+          name = "Name",
+          namespace = "Namespace", 
+          kind = "Kind",
+          apiVersion = "API Version",
+          filename = "File",
+          dir = "Path"
+        }, widths)
         vim.api.nvim_buf_set_lines(prompt_bufnr, 0, 0, false, { header, string.rep("-", #header) })
 
         actions.select_default:replace(function()
@@ -540,12 +681,19 @@ function M.single_file()
 
         if matches then
           local resources = organize_matches(matches)
+          
+          -- Calculate optimal column widths for this file's resources
+          local picker_width = M.get_picker_width()
+          local widths = M.calculate_column_widths(resources, picker_width)
+          
           pickers
             .new({}, {
               prompt_title = "Kubernetes Resources in " .. file_path,
               finder = finders.new_table({
                 results = resources,
-                entry_maker = convert_to_telescope,
+                entry_maker = function(entry)
+                  return convert_to_telescope(entry, widths)
+                end,
               }),
               sorter = conf.generic_sorter({}),
               attach_mappings = function(prompt_bufnr, map)
