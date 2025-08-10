@@ -148,6 +148,28 @@ Access the Telescope integration with these commands:
 
 - `:Telescope topsail workspace` - Browse all Kubernetes resources in the current working directory
 - `:Telescope topsail single_file` - Browse resources within a specific YAML file
+- `:Telescope topsail by_kind_and_annotations` - Browse resources with annotations displayed
+- `:Telescope topsail by_kind_and_labels` - Browse resources with labels displayed
+
+### Advanced Search Commands
+
+For more targeted searches, use these commands:
+
+- `:TopsailByAnnotations` - Search Kubernetes resources by kind and annotations
+- `:TopsailByLabels` - Search Kubernetes resources by kind and labels
+
+These advanced pickers display metadata (annotations or labels) alongside resource information, making it easier to find resources based on their metadata.
+
+### Performance Features
+
+Topsail uses **parallel processing (fanout)** to improve performance when scanning large directories:
+
+- **Asynchronous file processing**: Multiple YAML files are parsed concurrently
+- **Non-blocking UI**: Loading messages keep you informed while processing happens in the background
+- **Intelligent notifications**: Only shows loading messages for directories with 10+ files
+- **Graceful error handling**: Individual file parsing errors don't stop the entire process
+
+For large Kubernetes projects with hundreds of YAML files, this can significantly reduce loading times compared to sequential processing.
 
 ## Copy Functionality
 
@@ -234,6 +256,57 @@ spec:
 2. Select `kustomization.yaml`
 3. Choose from the three resources in the file
 4. Use `<C-r>` for individual resources or `<C-y>` for the whole file
+
+## Kustomization Support
+
+Topsail automatically detects and processes `kustomization.yaml` files, applying common labels and annotations to resources during indexing.
+
+### How it works
+
+When scanning a directory that contains a `kustomization.yaml` file, Topsail will:
+
+1. **Parse the kustomization file** to extract `commonLabels` and `commonAnnotations`
+2. **Apply common metadata** to all resources in the directory
+3. **Merge with existing metadata** - resource-specific labels/annotations take precedence
+4. **Display combined metadata** in telescope pickers
+
+### Example
+
+Given this `kustomization.yaml`:
+```yaml
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+commonLabels:
+  app: my-app
+  managed-by: kustomize
+
+commonAnnotations:
+  description: "Managed by kustomization"
+  version: "1.0.0"
+
+resources:
+- deployment.yaml
+- service.yaml
+```
+
+And this `deployment.yaml`:
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-deployment
+  labels:
+    component: backend
+  annotations:
+    deployment-specific: "true"
+spec:
+  replicas: 3
+```
+
+Topsail will index the deployment with **combined metadata**:
+- Labels: `app=my-app`, `managed-by=kustomize`, `component=backend`
+- Annotations: `description=Managed by kustomization`, `version=1.0.0`, `deployment-specific=true`
 
 ### Register Configuration
 
