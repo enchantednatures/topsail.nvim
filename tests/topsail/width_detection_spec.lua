@@ -186,6 +186,68 @@ describe("width detection and table sizing", function()
     end)
   end)
 
+  describe("format_table_entry_with_metadata", function()
+    it("should format entries with metadata appended", function()
+      local widths = {
+        name = 20,
+        namespace = 15,
+        kind = 12,
+        apiVersion = 18,
+        filename = 15,
+        dir = 10
+      }
+      
+      local entry = test_resources[1]
+      local metadata = "app=nginx, version=1.0"
+      local formatted = picker.format_table_entry_with_metadata(entry, widths, metadata)
+      
+      assert.is_string(formatted)
+      assert.has_match("short%-name", formatted)
+      assert.has_match("app=nginx", formatted)
+      assert.has_match("%[.*%]", formatted) -- Should wrap metadata in brackets
+    end)
+
+    it("should handle empty metadata gracefully", function()
+      local widths = {
+        name = 20,
+        namespace = 15,
+        kind = 12,
+        apiVersion = 18,
+        filename = 15,
+        dir = 10
+      }
+      
+      local entry = test_resources[1]
+      local formatted_empty = picker.format_table_entry_with_metadata(entry, widths, "")
+      local formatted_nil = picker.format_table_entry_with_metadata(entry, widths, nil)
+      local formatted_normal = picker.format_table_entry(entry, widths)
+      
+      -- Should be equivalent to normal formatting when metadata is empty
+      assert.equals(formatted_normal, formatted_empty)
+      assert.equals(formatted_normal, formatted_nil)
+    end)
+
+    it("should handle long metadata strings", function()
+      local widths = {
+        name = 15,
+        namespace = 15,
+        kind = 12,
+        apiVersion = 18,
+        filename = 15,
+        dir = 10
+      }
+      
+      local entry = test_resources[1]
+      local long_metadata = "app=my-very-long-application-name, version=1.0.0-beta.1, environment=production, managed-by=kustomize"
+      local formatted = picker.format_table_entry_with_metadata(entry, widths, long_metadata)
+      
+      assert.is_string(formatted)
+      assert.has_match("short%-name", formatted)
+      assert.has_match("my%-very%-long%-application%-name", formatted)
+      assert.has_match("%[.*%]", formatted)
+    end)
+  end)
+
   describe("integration", function()
     it("should work together for dynamic table sizing", function()
       -- Simulate the full workflow
